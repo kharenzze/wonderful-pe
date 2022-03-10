@@ -1,19 +1,8 @@
-enum TransactionType {
-  Deposit,
-  Withdrawal,
-  Dispute,
-  Resolve,
-  Chargeback,
-}
+mod amount;
+mod transaction;
 
-struct Amount(i64);
+use self::amount::Amount;
 
-struct Transaction {
-  type_: TransactionType,
-  client: u16,
-  tx: u32,
-  amount: Amount,
-}
 
 struct EngineStatus {
   balances: Vec<ClientBalance>
