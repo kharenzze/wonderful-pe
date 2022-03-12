@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::{cmp::Ordering, convert::TryFrom};
-use thiserror::Error;
+use crate::error::ParsingError;
 
 const DECIMAL_SIZE: usize = 4;
 const UNIT_MULTIPLIER: AmountInner = (10 as AmountInner).pow(DECIMAL_SIZE as u32);
@@ -10,10 +10,6 @@ type AmountInner = i64;
 #[serde(try_from = "&str")]
 pub struct Amount(AmountInner);
 
-#[derive(Debug, Error, PartialEq, Eq)]
-#[error("Could not convert string into Amount")]
-pub struct ConversionError();
-
 #[inline]
 fn to_inner(value: &str) -> Result<AmountInner, Box<dyn std::error::Error>> {
   let parts: Vec<&str> = value.split(".").collect();
@@ -22,7 +18,7 @@ fn to_inner(value: &str) -> Result<AmountInner, Box<dyn std::error::Error>> {
     return Ok(units * UNIT_MULTIPLIER);
   }
   if parts.len() != 2 {
-    return Err(Box::new(ConversionError()));
+    return Err(Box::new(ParsingError()));
   }
   let units: AmountInner = parts.get(0).unwrap().parse()?;
   let decimals = parts.get(1).unwrap_or(&"0000");
@@ -39,19 +35,19 @@ fn to_inner(value: &str) -> Result<AmountInner, Box<dyn std::error::Error>> {
 }
 
 impl TryFrom<&str> for Amount {
-  type Error = ConversionError;
+  type Error = ParsingError;
 
   fn try_from(value: &str) -> Result<Self, Self::Error> {
     to_inner(value)
       .map(|inner| Amount(inner))
-      .map_err(|_| ConversionError())
+      .map_err(|_| ParsingError())
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::Amount;
-  use super::ConversionError;
+  use super::ParsingError;
 
   #[test]
   fn simple() {
@@ -65,13 +61,13 @@ mod tests {
 
   #[test]
   fn errors() {
-    assert_eq!(Err(ConversionError()), Amount::try_from("hi"));
-    assert_eq!(Err(ConversionError()), Amount::try_from("3.0.0"));
+    assert_eq!(Err(ParsingError()), Amount::try_from("hi"));
+    assert_eq!(Err(ParsingError()), Amount::try_from("3.0.0"));
   }
 
   #[test]
   fn deserialization() {
     //let a: Amount = Deserialize::deserialize("3.0").unwrap();
-    assert_eq!(Err(ConversionError()), Amount::try_from("hi"));
+    assert_eq!(Err(ParsingError()), Amount::try_from("hi"));
   }
 }
