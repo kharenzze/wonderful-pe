@@ -20,7 +20,7 @@ struct ClientBalance {
 }
 
 impl Engine {
-  fn ingest_csv(&mut self, filename: &str) -> DynResult<()> {
+  pub fn ingest_csv(&mut self, filename: &str) -> DynResult<()> {
     csv::ReaderBuilder::new()
       .trim(csv::Trim::All)
       .from_path(filename)?
