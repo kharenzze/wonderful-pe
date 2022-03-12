@@ -6,7 +6,7 @@ const DECIMAL_SIZE: usize = 4;
 const UNIT_MULTIPLIER: AmountInner = (10 as AmountInner).pow(DECIMAL_SIZE as u32);
 type AmountInner = i64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
 #[serde(try_from = "&str")]
 pub struct Amount(AmountInner);
 
