@@ -6,7 +6,7 @@ use std::collections::HashMap;
 type ClientId = u16;
 
 #[derive(Debug, Default, Clone)]
-struct Engine {
+pub struct Engine {
   balances: HashMap<ClientId, ClientBalance>,
 }
 
