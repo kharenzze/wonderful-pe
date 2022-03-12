@@ -5,7 +5,7 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "&str")]
-enum TransactionType {
+pub enum TransactionType {
   Deposit,
   Withdrawal,
   Dispute,
@@ -14,12 +14,12 @@ enum TransactionType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-struct Transaction {
+pub struct Transaction {
   #[serde(rename = "type")]
-  type_: TransactionType,
-  client: u16,
-  tx: u32,
-  amount: Amount,
+  pub type_: TransactionType,
+  pub client: u16,
+  pub tx: u32,
+  pub amount: Amount,
 }
 
 impl TryFrom<&str> for TransactionType {
@@ -39,6 +39,9 @@ impl TryFrom<&str> for TransactionType {
 
 #[cfg(test)]
 mod tests {
+  use crate::transaction::TransactionType;
+
+  use super::Amount;
   use super::Transaction;
 
   #[test]
@@ -51,5 +54,10 @@ mod tests {
       .map(|res| res.unwrap())
       .collect();
     assert_eq!(transactions.len(), 1);
+    let t = transactions[0];
+    assert_eq!(t.amount, Amount::try_from("1.0").unwrap());
+    assert_eq!(t.client, 1);
+    assert_eq!(t.tx, 1);
+    assert_eq!(t.type_, TransactionType::Deposit);
   }
 }
