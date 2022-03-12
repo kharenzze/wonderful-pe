@@ -1,6 +1,7 @@
+use crate::error::DynResult;
+use crate::error::ParsingError;
 use serde::Deserialize;
 use std::{cmp::Ordering, convert::TryFrom};
-use crate::error::ParsingError;
 
 const DECIMAL_SIZE: usize = 4;
 const UNIT_MULTIPLIER: AmountInner = (10 as AmountInner).pow(DECIMAL_SIZE as u32);
@@ -11,7 +12,7 @@ type AmountInner = i64;
 pub struct Amount(AmountInner);
 
 #[inline]
-fn to_inner(value: &str) -> Result<AmountInner, Box<dyn std::error::Error>> {
+fn to_inner(value: &str) -> DynResult<AmountInner> {
   let parts: Vec<&str> = value.split(".").collect();
   if parts.len() == 1 {
     let units: AmountInner = parts.get(0).unwrap().parse()?;
