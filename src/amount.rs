@@ -1,6 +1,7 @@
 use crate::error::DynResult;
 use crate::error::ParsingError;
 use serde::Deserialize;
+use std::ops;
 use std::{cmp::Ordering, convert::TryFrom};
 
 const DECIMAL_SIZE: usize = 4;
@@ -45,6 +46,31 @@ impl TryFrom<&str> for Amount {
   }
 }
 
+impl From<i64> for Amount {
+  fn from(v: i64) -> Self {
+    Amount(v)
+  }
+}
+
+impl ops::Add<Amount> for Amount {
+  type Output = Amount;
+  fn add(self, rhs: Amount) -> Amount {
+    Amount(self.0 + rhs.0)
+  }
+}
+
+impl ops::AddAssign<Amount> for Amount {
+  fn add_assign(&mut self, rhs: Amount) {
+    self.0 += rhs.0
+  }
+}
+
+impl Amount {
+  pub fn checked_sub(&self, rhs: Amount) -> Option<Amount> {
+    self.0.checked_sub(rhs.0).map(|i| Amount(i))
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::Amount;
@@ -67,8 +93,25 @@ mod tests {
   }
 
   #[test]
-  fn deserialization() {
+  fn from() {
     //let a: Amount = Deserialize::deserialize("3.0").unwrap();
-    assert_eq!(Err(ParsingError()), Amount::try_from("hi"));
+    assert_eq!(Amount::from(350000), Amount::try_from("35").unwrap());
+  }
+
+  #[test]
+  fn add() {
+    let a = Amount(10000);
+    let b = Amount(20000);
+    let res = Amount(30000);
+    assert_eq!(a + b, res);
+  }
+
+  #[test]
+  fn add_assign() {
+    let mut a = Amount(10000);
+    let b = Amount(20000);
+    let res = Amount(30000);
+    a += b;
+    assert_eq!(a, res);
   }
 }
