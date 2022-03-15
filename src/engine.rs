@@ -1,13 +1,27 @@
 use crate::amount::Amount;
-use crate::error::DynResult;
-use crate::transaction::{Transaction, TransactionType};
+use crate::error::{DynResult, TransactionProcessingError};
+use crate::transaction::{ClientId, Transaction, TransactionType, TxId};
 use std::collections::HashMap;
-
-type ClientId = u16;
 
 #[derive(Debug, Default, Clone)]
 pub struct Engine {
   balances: HashMap<ClientId, ClientBalance>,
+  transaction_history: HashMap<TxId, TransactionRecord>,
+}
+
+#[derive(Debug, Clone)]
+struct TransactionRecord {
+  transaction: Transaction,
+  dispute_status: Option<TransactionType>,
+}
+
+impl From<&Transaction> for TransactionRecord {
+  fn from(t: &Transaction) -> Self {
+    Self {
+      transaction: t.clone(),
+      dispute_status: None,
+    }
+  }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -40,32 +54,53 @@ impl Engine {
       .filter(|res| res.is_ok())
       .for_each(|res| {
         let transaction: Transaction = res.unwrap();
-        println!("{:?}", &transaction);
+        let processed = self.apply_transaction(&transaction);
       });
     Ok(())
   }
 
   fn apply_transaction(&mut self, transaction: &Transaction) -> DynResult<()> {
-    let mut balance = self.get_or_create_mut_balance(transaction.client);
     match transaction.type_ {
       TransactionType::Deposit => {
+        if self.transaction_history.get(&transaction.tx).is_some() {
+          return Err(TransactionProcessingError::Duplicated.into());
+        }
+        let balance = self.get_or_create_mut_balance(transaction.client);
+        if balance.locked {
+          return Err(TransactionProcessingError::TargetAccountLocked.into());
+        }
         balance.total += transaction.amount;
         balance.available += transaction.amount;
-      },
+
+        self
+          .transaction_history
+          .insert(transaction.tx, TransactionRecord::from(transaction));
+      }
       TransactionType::Withdrawal => {
-        balance.available = balance.available.checked_sub(transaction.amount).ok_or("Not enough available")?;
+        if self.transaction_history.get(&transaction.tx).is_some() {
+          return Err(TransactionProcessingError::Duplicated.into());
+        }
+        let mut balance = self.get_or_create_mut_balance(transaction.client);
+        if balance.locked {
+          return Err(TransactionProcessingError::TargetAccountLocked.into());
+        }
+        balance.available = balance
+          .available
+          .checked_sub(transaction.amount)
+          .ok_or_else(|| TransactionProcessingError::NotEnoughAvailable)?;
         balance.total = balance.total.checked_sub(transaction.amount).unwrap();
-      },
-      TransactionType::Dispute => {
-        unimplemented!();
-      },
+
+        self
+          .transaction_history
+          .insert(transaction.tx, TransactionRecord::from(transaction));
+      }
+      TransactionType::Dispute => {}
       TransactionType::Resolve => {
         unimplemented!();
-      },
+      }
       TransactionType::Chargeback => {
         unimplemented!();
-      },
-      _ => unimplemented!()
+      }
     }
     Ok(())
   }
