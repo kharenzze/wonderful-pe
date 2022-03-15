@@ -94,7 +94,16 @@ impl Engine {
           .transaction_history
           .insert(transaction.tx, TransactionRecord::from(transaction));
       }
-      TransactionType::Dispute => {}
+      TransactionType::Dispute => {
+        let record = self
+          .transaction_history
+          .get_mut(&transaction.tx)
+          .ok_or_else(|| TransactionProcessingError::MissingTargetTransaction)?;
+        if record.dispute_status.is_some() {
+          return Err(TransactionProcessingError::AlreadyDisputed.into());
+        }
+        
+      }
       TransactionType::Resolve => {
         unimplemented!();
       }

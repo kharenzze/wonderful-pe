@@ -11,7 +11,11 @@ pub enum TransactionProcessingError {
   #[error("Target account is locked")]
   TargetAccountLocked,
   #[error("Available money is less than withdraw amount")]
-  NotEnoughAvailable
+  NotEnoughAvailable,
+  #[error("Target transaction does not exist")]
+  MissingTargetTransaction,
+  #[error("TransactionAlreadyDisputed")]
+  AlreadyDisputed
 } 
 
 pub type DynResult<T> = Result<T, Box<dyn std::error::Error>>;
