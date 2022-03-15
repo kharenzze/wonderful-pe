@@ -3,6 +3,9 @@ use crate::error::ParsingError;
 use serde::Deserialize;
 use std::convert::TryFrom;
 
+pub type ClientId = u16;
+pub type TxId = u32;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "&str")]
 pub enum TransactionType {
@@ -17,8 +20,8 @@ pub enum TransactionType {
 pub struct Transaction {
   #[serde(rename = "type")]
   pub type_: TransactionType,
-  pub client: u16,
-  pub tx: u32,
+  pub client: ClientId,
+  pub tx: TxId,
   pub amount: Amount,
 }
 
