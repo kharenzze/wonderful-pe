@@ -1,5 +1,5 @@
 use crate::amount::Amount;
-use crate::error::ParsingError;
+use crate::error::{ ParsingError, TransactionProcessingError};
 use serde::Deserialize;
 use std::convert::TryFrom;
 
@@ -22,7 +22,7 @@ pub struct Transaction {
   pub type_: TransactionType,
   pub client: ClientId,
   pub tx: TxId,
-  pub amount: Amount,
+  pub amount: Option<Amount>,
 }
 
 impl TryFrom<&str> for TransactionType {
@@ -37,6 +37,18 @@ impl TryFrom<&str> for TransactionType {
       "chargeback" => Ok(Self::Chargeback),
       _ => Err(ParsingError()),
     }
+  }
+}
+
+impl Transaction {
+  pub fn can_be_disputed_by(&self, &dispute: &Self) -> Result<(), TransactionProcessingError> {
+    if self.type_ != TransactionType::Deposit {
+      return Err(TransactionProcessingError::DisputingWrongTransactionType);
+    }
+    if self.client != dispute.client {
+      return Err(TransactionProcessingError::ClientDoesNotMatch);
+    }
+    Ok(())
   }
 }
 
@@ -58,7 +70,7 @@ mod tests {
       .collect();
     assert_eq!(transactions.len(), 1);
     let t = transactions[0];
-    assert_eq!(t.amount, Amount::try_from("1.0").unwrap());
+    assert_eq!(t.amount, Amount::try_from("1.0").ok());
     assert_eq!(t.client, 1);
     assert_eq!(t.tx, 1);
     assert_eq!(t.type_, TransactionType::Deposit);
