@@ -57,7 +57,11 @@ impl Engine {
       .filter(|res| res.is_ok())
       .for_each(|res| {
         let transaction: Transaction = res.unwrap();
-        let _processed = self.apply_transaction(&transaction);
+        let processed = self.apply_transaction(&transaction);
+        match processed {
+          Err(x) => log::warn!("{}", x),
+          _ => log::info!("{} processed for account {}", &transaction.type_, &transaction.client),
+        }
       });
     Ok(())
   }
