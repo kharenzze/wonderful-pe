@@ -7,7 +7,7 @@ use std::{cmp::Ordering, convert::TryFrom};
 
 const DECIMAL_SIZE: usize = 4;
 const UNIT_MULTIPLIER: AmountInner = (10 as AmountInner).pow(DECIMAL_SIZE as u32);
-type AmountInner = i64;
+type AmountInner = u64;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
 #[serde(try_from = "&str")]
@@ -47,8 +47,8 @@ impl TryFrom<&str> for Amount {
   }
 }
 
-impl From<i64> for Amount {
-  fn from(v: i64) -> Self {
+impl From<u64> for Amount {
+  fn from(v: u64) -> Self {
     Amount(v)
   }
 }
