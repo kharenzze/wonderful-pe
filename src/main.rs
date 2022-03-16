@@ -7,5 +7,10 @@ fn main() {
   }
   let path = args.nth(1).unwrap();
   let mut engine: Engine = Default::default();
-  engine.ingest_csv(&path).expect("Error processing input file");
+  engine
+    .ingest_csv(&path)
+    .expect("Error processing input file");
+  engine
+    .print_balance_to_stdout()
+    .expect("Error printing balances csv");
 }

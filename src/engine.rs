@@ -1,6 +1,7 @@
 use crate::amount::Amount;
 use crate::error::{DynResult, TransactionProcessingError};
 use crate::transaction::{ClientId, Transaction, TransactionType, TxId};
+use serde::Serialize;
 use std::collections::HashMap;
 
 type TransResult<T> = Result<T, TransactionProcessingError>;
@@ -26,7 +27,7 @@ impl From<&Transaction> for TransactionRecord {
   }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, Serialize)]
 struct ClientBalance {
   client: ClientId,
   available: Amount,
@@ -56,7 +57,7 @@ impl Engine {
       .filter(|res| res.is_ok())
       .for_each(|res| {
         let transaction: Transaction = res.unwrap();
-        let processed = self.apply_transaction(&transaction);
+        let _processed = self.apply_transaction(&transaction);
       });
     Ok(())
   }
@@ -187,6 +188,15 @@ impl Engine {
       return Err(TransactionProcessingError::TargetAccountLocked);
     }
     Ok(b)
+  }
+
+  pub fn print_balance_to_stdout(&self) -> DynResult<()> {
+    let mut wtr = csv::Writer::from_writer(std::io::stdout());
+    for (_, balance) in self.balances.iter() {
+      wtr.serialize(balance)?;
+    }
+    wtr.flush()?;
+    Ok(())
   }
 }
 
