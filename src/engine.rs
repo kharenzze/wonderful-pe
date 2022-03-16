@@ -3,6 +3,8 @@ use crate::error::{DynResult, TransactionProcessingError};
 use crate::transaction::{ClientId, Transaction, TransactionType, TxId};
 use std::collections::HashMap;
 
+type TransResult<T> = Result<T, TransactionProcessingError>;
+
 #[derive(Debug, Default, Clone)]
 pub struct Engine {
   balances: HashMap<ClientId, ClientBalance>,
@@ -65,12 +67,12 @@ impl Engine {
         if self.transaction_history.get(&transaction.tx).is_some() {
           return Err(TransactionProcessingError::Duplicated.into());
         }
-        let balance = self.get_or_create_mut_balance(transaction.client);
-        if balance.locked {
-          return Err(TransactionProcessingError::TargetAccountLocked.into());
-        }
-        balance.total += transaction.amount;
-        balance.available += transaction.amount;
+        let balance = self.get_or_create_balance_mut(transaction.client)?;
+        let amount = transaction
+          .amount
+          .ok_or_else(|| TransactionProcessingError::MissingTransactionAmount)?;
+        balance.total += amount;
+        balance.available += amount;
 
         self
           .transaction_history
@@ -80,44 +82,122 @@ impl Engine {
         if self.transaction_history.get(&transaction.tx).is_some() {
           return Err(TransactionProcessingError::Duplicated.into());
         }
-        let mut balance = self.get_or_create_mut_balance(transaction.client);
-        if balance.locked {
-          return Err(TransactionProcessingError::TargetAccountLocked.into());
-        }
+        let mut balance = self.get_or_create_balance_mut(transaction.client)?;
+        let amount = transaction
+          .amount
+          .ok_or_else(|| TransactionProcessingError::MissingTransactionAmount)?;
         balance.available = balance
           .available
-          .checked_sub(transaction.amount)
+          .checked_sub(amount)
           .ok_or_else(|| TransactionProcessingError::NotEnoughAvailable)?;
-        balance.total = balance.total.checked_sub(transaction.amount).unwrap();
+        balance.total = balance.total.checked_sub(amount).unwrap();
 
         self
           .transaction_history
           .insert(transaction.tx, TransactionRecord::from(transaction));
       }
       TransactionType::Dispute => {
-        let record = self
-          .transaction_history
-          .get_mut(&transaction.tx)
-          .ok_or_else(|| TransactionProcessingError::MissingTargetTransaction)?;
+        let record = self.get_tx_record(transaction.tx)?;
         if record.dispute_status.is_some() {
           return Err(TransactionProcessingError::AlreadyDisputed.into());
         }
-        
+        record.transaction.can_be_disputed_by(transaction)?;
+
+        let amount = record.transaction.amount.unwrap();
+        let mut balance = self.get_or_create_balance_mut(transaction.client)?;
+        balance.available = balance
+          .available
+          .checked_sub(amount)
+          .ok_or_else(|| TransactionProcessingError::NotEnoughAvailable)?;
+        balance.held += amount;
+
+        let record = self.get_tx_record_mut(transaction.tx)?;
+        record.dispute_status = Some(TransactionType::Dispute);
       }
       TransactionType::Resolve => {
-        unimplemented!();
+        let record = self.get_tx_record(transaction.tx)?;
+        if !record.dispute_status.eq(&Some(TransactionType::Dispute)) {
+          return Err(TransactionProcessingError::NotDisputed.into());
+        }
+        record.transaction.can_be_disputed_by(transaction)?;
+
+        let amount = record.transaction.amount.unwrap();
+        let mut balance = self.get_or_create_balance_mut(transaction.client)?;
+        balance.held = balance
+          .held
+          .checked_sub(amount)
+          .ok_or_else(|| TransactionProcessingError::NotEnoughHeld)?;
+        balance.available += amount;
+
+        let record = self.get_tx_record_mut(transaction.tx)?;
+        record.dispute_status = Some(TransactionType::Resolve);
       }
       TransactionType::Chargeback => {
-        unimplemented!();
+        let record = self.get_tx_record(transaction.tx)?;
+        if !record.dispute_status.eq(&Some(TransactionType::Dispute)) {
+          return Err(TransactionProcessingError::NotDisputed.into());
+        }
+        record.transaction.can_be_disputed_by(transaction)?;
+
+        let amount = record.transaction.amount.unwrap();
+        let mut balance = self.get_or_create_balance_mut(transaction.client)?;
+        let held = balance
+          .held
+          .checked_sub(amount)
+          .ok_or_else(|| TransactionProcessingError::NotEnoughHeld)?;
+        let total = balance
+          .total
+          .checked_sub(amount)
+          .ok_or_else(|| TransactionProcessingError::NotEnoughTotal)?;
+
+        balance.held = held;
+        balance.total = total;
+        balance.locked = true;
+
+        let record = self.get_tx_record_mut(transaction.tx)?;
+        record.dispute_status = Some(TransactionType::Chargeback);
       }
     }
     Ok(())
   }
 
-  fn get_or_create_mut_balance(&mut self, client: ClientId) -> &mut ClientBalance {
+  #[inline]
+  fn get_tx_record(&self, tx: TxId) -> TransResult<&TransactionRecord> {
+    self
+      .transaction_history
+      .get(&tx)
+      .ok_or_else(|| TransactionProcessingError::MissingTargetTransaction)
+  }
+
+  #[inline]
+  fn get_tx_record_mut(&mut self, tx: TxId) -> TransResult<&mut TransactionRecord> {
+    self
+      .transaction_history
+      .get_mut(&tx)
+      .ok_or_else(|| TransactionProcessingError::MissingTargetTransaction)
+  }
+
+  #[inline]
+  fn get_or_create_balance_mut(&mut self, client: ClientId) -> TransResult<&mut ClientBalance> {
     if self.balances.get(&client).is_none() {
       self.balances.insert(client, ClientBalance::new(client));
     }
-    self.balances.get_mut(&client).unwrap()
+    let b = self.balances.get_mut(&client).unwrap();
+    if b.locked {
+      return Err(TransactionProcessingError::TargetAccountLocked);
+    }
+    Ok(b)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::Engine;
+
+  #[test]
+  fn little() {
+    let mut engine: Engine = Default::default();
+    let ingest_result = engine.ingest_csv("./tests/samples/little.csv");
+    assert_eq!(ingest_result.is_ok(), true);
   }
 }
