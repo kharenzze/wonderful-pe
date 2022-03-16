@@ -1,6 +1,7 @@
 use crate::error::DynResult;
 use crate::error::ParsingError;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::ops;
 use std::{cmp::Ordering, convert::TryFrom};
 
@@ -65,6 +66,28 @@ impl ops::AddAssign<Amount> for Amount {
   }
 }
 
+impl Display for Amount {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let units = self.0 / UNIT_MULTIPLIER;
+    let decimal = self.0 % UNIT_MULTIPLIER;
+    if decimal == 0 {
+      write!(f, "{}.0", units)
+    } else {
+      let decimal_str = format!("{:0>4}", decimal);
+      write!(f, "{}.{}", units, decimal_str.trim_end_matches("0"))
+    }
+  }
+}
+
+impl Serialize for Amount {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
+    serializer.serialize_str(&self.to_string())
+  }
+}
+
 impl Amount {
   pub fn checked_sub(&self, rhs: Amount) -> Option<Amount> {
     self.0.checked_sub(rhs.0).map(|i| Amount(i))
@@ -113,5 +136,13 @@ mod tests {
     let res = Amount(30000);
     a += b;
     assert_eq!(a, res);
+  }
+
+  #[test]
+  fn to_string() {
+    assert_eq!(&Amount(10000).to_string(), "1.0");
+    assert_eq!(&Amount(20001).to_string(), "2.0001");
+    assert_eq!(&Amount(123456).to_string(), "12.3456");
+    assert_eq!(&Amount(200).to_string(), "0.02");
   }
 }
