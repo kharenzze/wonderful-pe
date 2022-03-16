@@ -1,6 +1,7 @@
 use wonderful_pe::engine::Engine;
 
 fn main() {
+  env_logger::init();
   let mut args = std::env::args();
   if args.len() != 2 {
     panic!("There must be an argument, which is the csv input path.")
