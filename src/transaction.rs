@@ -1,7 +1,8 @@
 use crate::amount::Amount;
-use crate::error::{ ParsingError, TransactionProcessingError};
+use crate::error::{ParsingError, TransactionProcessingError};
 use serde::Deserialize;
 use std::convert::TryFrom;
+use std::fmt::Display;
 
 pub type ClientId = u16;
 pub type TxId = u32;
@@ -37,6 +38,19 @@ impl TryFrom<&str> for TransactionType {
       "chargeback" => Ok(Self::Chargeback),
       _ => Err(ParsingError()),
     }
+  }
+}
+
+impl Display for TransactionType {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let text = match self {
+      &Self::Chargeback => "Chargeback",
+      &Self::Withdrawal => "Withdrawal",
+      &Self::Dispute => "Dispute",
+      &Self::Deposit => "Deposit",
+      &Self::Resolve => "Resolve",
+    };
+    write!(f,"{}", text)
   }
 }
 
