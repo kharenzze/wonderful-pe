@@ -84,7 +84,7 @@ impl Serialize for Amount {
   where
     S: serde::Serializer,
   {
-    serializer.serialize_str(&self.to_string())
+    serializer.serialize_newtype_struct("Amount", &self.to_string())
   }
 }
 
